@@ -32,7 +32,7 @@ def testDataGen():
     plt.figure(figsize=(12, 6))
     plt.plot(xs, ys, label='Noisy Data')
     plt.legend()
-    plt.title('Original Data vs. Noisy Data with Exponential Std Dev')
+    plt.title('Noisy sine data')
     plt.xlabel('x')
     plt.ylabel('y')
     plt.show()
@@ -48,11 +48,36 @@ def testDataGen():
     plt.figure(figsize=(12, 6))
     plt.plot(x, y, label='Noisy Data')
     plt.legend()
-    plt.title('Original Data vs. Noisy Data with Exponential Std Dev')
+    plt.title('Linear data with sine applied')
     plt.xlabel('x')
     plt.ylabel('y')
     plt.show()
     
     return
 
-testDataGen()
+def testNorm():
+    generator = DataGen.DataGen()
+    x, y = generator.generateLinear(1,0,1,10,90,2)
+    #x, y = generator.generateSine(100,0.30,0,10,90,2)
+    
+    y_norm = generator.unitNorm(y)
+    # Plotting original
+    plt.figure(figsize=(12, 6))
+    plt.plot(x, y, label='Original Data')
+    plt.legend()
+    plt.title('Original Data')
+    plt.xlabel('x')
+    plt.ylabel('y')
+    plt.show()
+    
+    # Plotting
+    plt.figure(figsize=(12, 6))
+    plt.plot(x, y_norm, label='Normalized Data')
+    plt.legend()
+    plt.title('Normalized Data')
+    plt.xlabel('x')
+    plt.ylabel('normalized y')
+    plt.show()
+
+#testDataGen()
+testNorm()

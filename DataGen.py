@@ -113,4 +113,16 @@ class DataGen():
         return (x, y)
     
     '''
+    unitNorm(data)
+    takes in the data and normalizes it to a unit norm for neural network training
+    Input:
+        list data: data to be normalized
+    Output:
+        list y_norm: normalized data. Same dimensions as input
     '''
+    def unitNorm(self, data):
+        min_val = np.min(data)
+        max_val = np.max(data)
+        return (data - min_val) / (max_val - min_val)
+        #norm = np.linalg.norm(y, axis=0, keepdims=True)
+        #return y / norm
