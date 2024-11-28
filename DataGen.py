@@ -61,8 +61,9 @@ class DataGen():
     This function generates sine-like data. These data may be made stochastic by 
     giving it a standard deviation.
     Input:
-        float amplitude: the amplitude A in y = A*sin(P*x)
-        float phase: the phase P in y = A*sin(P*x)
+        float amplitude: the amplitude A in y = A*sin(P*x) + offset
+        float phase: the phase P in y = A*sin(P*x) + offset
+        float offset: the offset in y = A*sin(P*x) + offset
         float STDEV: the standard deviation to make the output random gaussian
         int start: the starting x value
         int stop: the ending x value
@@ -70,7 +71,7 @@ class DataGen():
     Output:
         (list of x, list of y)
     '''
-    def generateSine(self, a, p, stdev = 0, start = 0, stop = 100, step = 1):
+    def generateSine(self, a, p, offset, stdev = 0, start = 0, stop = 100, step = 1):
         if (stop - start) < step:
             print("Error in generateLinear;\n step size is larger than data range.")
             return
@@ -82,7 +83,7 @@ class DataGen():
         x = []
         y = []
         for i in range(start, stop, step):
-            y.append(a*np.sin(p*i))
+            y.append(a*np.sin(p*i) + offset)
             x.append(i)
         
         #if a standard deviation was set, apply it to the y axis
