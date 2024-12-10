@@ -6,6 +6,7 @@ Created on Tue Dec 10 09:11:26 2024
 """
 
 import datetime
+import numpy as np
 
 class StockCalculator():
     def __init__(self, data, ticker):
@@ -73,3 +74,46 @@ class StockCalculator():
             err = "Month could not be parsed for " + isoDate + " in " + self.ticker
             raise Exception(err) 
         return month
+    
+    '''
+    getDayMonth()
+    This function generates a list of (day, month) pairs from the data loaded in the object.
+    Requires the data to be loaded in as (M/D/YYY, close, volume, open, high, low) strings from the .csv
+    Input: None, just requires the data loaded in the object
+    Output: list of ((int) day, (int) month) pairs
+    '''
+    def getDayMonth(self):
+        dayMonths = []
+        for row in self.data:
+            isoDate = self._UStoISODate(row[0])
+            dayMonths.append((self._getDayOfWeekISO(isoDate), self._getMonth(isoDate)))
+        return dayMonths
+    
+    '''
+    getDayMonthIdx(index)
+    This function generates a list of (day, month) pairs from the data loaded in the object.
+    Requires the data to be loaded in as (M/D/YYY, close, volume, open, high, low) strings from the .csv
+    Input: (int) index of the data to extract the day and month for
+    Output: tuple of ((int) day, (int) month)
+    '''
+    def getDayMonthIdx(self, i):
+        row = self.data[i]
+        isoDate = self._UStoISODate(row[0])
+        return (self._getDayOfWeekISO(isoDate), self._getMonth(isoDate))
+    
+    '''
+    getSMA60(index)
+    This function calculates the simple 60-day moving average for the data at a given index.
+    Requires index > 60, otherwise will return -1.
+    Input: (int) index of the data to calculate SMA60 for
+    Output: (float) 60-day SMA at index, or -1 if it can't be calculated
+    '''
+    def getSMA60(self, i):
+        if i < 60:
+            return -1
+        sum60 = 0
+        for idx in range(i-60,i):
+            sum60 += float(self.data[idx][1]) #column 1 should be closing price
+        sma60 = sum60/60
+        sma60 = round(sum(self.data[i-60:i][1]),2)
+        return sma60
