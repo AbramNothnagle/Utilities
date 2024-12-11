@@ -10,7 +10,7 @@ import numpy as np
 
 class StockCalculator():
     def __init__(self, data, ticker):
-        self.data = data
+        self.data = np.array(data)
         self.ticker = ticker
     
     '''
@@ -58,6 +58,22 @@ class StockCalculator():
             err = "Day of week could not be parsed for " + isoDate + " in " + self.ticker
             raise Exception(err) 
         return day + 1
+    
+    '''
+    _getDayISO
+    Meant to get the day of the month as an integer
+    Will raise an exception if the extraction failed.
+    Input: (string) date of format YYYY-MM-DD 
+    Output: (int) day number
+    '''
+    def _getDayISO(self, isoDate):
+        day = -1
+        d = datetime.date.fromisoformat(isoDate)
+        day = d.day #Returns number of the day in the month
+        if day < 0:
+            err = "Day of month could not be parsed for " + isoDate + " in " + self.ticker
+            raise Exception(err) 
+        return day
     
     '''
     _getMonth
@@ -110,10 +126,62 @@ class StockCalculator():
     '''
     def getSMA60(self, i):
         if i < 60:
-            return -1
-        sum60 = 0
+            return -1.0
+        #column 1 is the closing price
+        sma60 = round(np.sum(self.data[i-60:i,1]).astype(np.float)/60,2)
+        '''sum60 = 0
         for idx in range(i-60,i):
             sum60 += float(self.data[idx][1]) #column 1 should be closing price
         sma60 = sum60/60
-        sma60 = round(sum(self.data[i-60:i][1]),2)
+        #sma60 = round(sum(self.data[i-60:i][1]),2)'''
         return sma60
+    
+    '''
+    getSMAx(x, i)
+    This function calculates the simple x-day moving average for the data at a given index.
+    Requires index > x, otherwise will return -1.
+    Input:  (int) x - the number of days over which to calculate the SMA 
+            (int) i - index of the data to calculate SMAx for
+    Output: (float) x-day SMA at index, or -1 if it can't be calculated
+    '''
+    def getSMAx(self, x, i):
+        if i < x:
+            return -1.0
+        #column 1 is the closing price
+        smaX = round(np.sum(self.data[i-x:i,1].astype(np.float))/x,2)
+
+        return smaX
+    
+    '''
+    getWMAx(x, i)
+    This function calculates the weighted x-day moving average for the data at a given index.
+    Requires index > x, otherwise will return -1.
+    Input:  (int) x - the number of days over which to calculate the WMA 
+            (int) i - index of the data to calculate WMAx for
+    Output: (float) x-day WMA at index, or -1 if it can't be calculated
+    '''
+    def getWMAx(self, x, i):
+        if i < x:
+            return -1.0
+        #column 1 is the closing price
+        window = self.data[i-x:i,1].astype(np.float)
+        weights = np.array(list(range(1,x+1)))
+        weights = weights/np.sum(weights)
+        weightedWindow = window*weights
+        wmaX = round(np.sum(weightedWindow),2)
+
+        return wmaX
+    
+    '''
+    getSTDx(x, i)
+    This function calculates the standard deviation over the previous x days at the index provided.
+    Requires index > x, otherwise will return -1.
+    Input:  (int) x - the number of days over which to calculate the STD  
+            (int) i - index of the data to calculate STDx for
+    Output: (float) x-day standard deviation at index, or -1 if it can't be calculated
+    '''
+    def getSTDx(self, x, i):
+        if i < x:
+            return -1.0
+        stdX = round(np.std(self.data[i-x:i,1].astype(np.float)),2)
+        return stdX
