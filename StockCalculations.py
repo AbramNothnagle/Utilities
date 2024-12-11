@@ -7,6 +7,8 @@ Created on Tue Dec 10 09:11:26 2024
 
 import datetime
 import numpy as np
+import csv
+import pandas as pd
 
 class StockCalculator():
     def __init__(self, data, ticker):
@@ -100,10 +102,52 @@ class StockCalculator():
     '''
     def getDayMonth(self):
         dayMonths = []
-        for row in self.data:
+        for row in self.data[1:]:
             isoDate = self._UStoISODate(row[0])
             dayMonths.append((self._getDayOfWeekISO(isoDate), self._getMonth(isoDate)))
         return dayMonths
+    
+    '''
+    getWeekDays()
+    This function generates a list of week days from the data loaded in the object.
+    Requires the data to be loaded in as (M/D/YYY, close, volume, open, high, low) strings from the .csv
+    Input: None, just requires the data loaded in the object
+    Output: list of (int) days (1-7 for mon-fri)
+    '''
+    def getWeekDays(self):
+        days = []
+        for row in self.data[1:]:
+            isoDate = self._UStoISODate(row[0])
+            days.append(self._getDayOfWeekISO(isoDate))
+        return days
+    
+    '''
+    getDays()
+    This function generates a list of days from the data loaded in the object.
+    Requires the data to be loaded in as (M/D/YYY, close, volume, open, high, low) strings from the .csv
+    Input: None, just requires the data loaded in the object
+    Output: list of (int) days
+    '''
+    def getDays(self):
+        days = []
+        for row in self.data[1:]:
+            isoDate = self._UStoISODate(row[0])
+            days.append(self._getDayISO(isoDate))
+        return days
+    
+    '''
+    getMonths()
+    This function generates a list of months from the data loaded in the object.
+    Requires the data to be loaded in as (M/D/YYY, close, volume, open, high, low) strings from the .csv
+    Input: None, just requires the data loaded in the object
+    Output: list of (int) months
+    '''
+    def getMonths(self):
+        months = []
+        for row in self.data[1:]:
+            isoDate = self._UStoISODate(row[0])
+            months.append(self._getMonth(isoDate))
+        return months
     
     '''
     getDayMonthIdx(index)
@@ -116,25 +160,6 @@ class StockCalculator():
         row = self.data[i]
         isoDate = self._UStoISODate(row[0])
         return (self._getDayOfWeekISO(isoDate), self._getMonth(isoDate))
-    
-    '''
-    getSMA60(index)
-    This function calculates the simple 60-day moving average for the data at a given index.
-    Requires index > 60, otherwise will return -1.
-    Input: (int) index of the data to calculate SMA60 for
-    Output: (float) 60-day SMA at index, or -1 if it can't be calculated
-    '''
-    def getSMA60(self, i):
-        if i < 60:
-            return -1.0
-        #column 1 is the closing price
-        sma60 = round(np.sum(self.data[i-60:i,1]).astype(np.float)/60,2)
-        '''sum60 = 0
-        for idx in range(i-60,i):
-            sum60 += float(self.data[idx][1]) #column 1 should be closing price
-        sma60 = sum60/60
-        #sma60 = round(sum(self.data[i-60:i][1]),2)'''
-        return sma60
     
     '''
     getSMAx(x, i)
@@ -185,3 +210,78 @@ class StockCalculator():
             return -1.0
         stdX = round(np.std(self.data[i-x:i,1].astype(np.float)),2)
         return stdX
+    
+    '''
+    getMin(x, i)
+    Returns the minimum closing price within x prior days of the index provided
+    Requires index > x, otherwise will return -1.
+    Input:  (int) x - the number of days over which to find the minimum value  
+            (int) i - index of the data to start at
+    Output: (float) minimum stock price within the previous x days
+    '''
+    def getMin(self, x, i):
+        if i < x:
+            return -1.0
+        minX = np.min(self.data[i-x:i,1].astype(np.float))
+        return minX
+    
+    '''
+    getMax(x, i)
+    Returns the maximum closing price within x prior days of the index provided
+    Requires index > x, otherwise will return -1.
+    Input:  (int) x - the number of days over which to find the maximum value  
+            (int) i - index of the data to start at
+    Output: (float) maximum stock price within the previous x days
+    '''
+    def getMax(self, x, i):
+        if i < x:
+            return -1.0
+        maxX = np.max(self.data[i-x:i,1].astype(np.float))
+        return maxX
+    
+
+spy = []
+with open('spy_max.csv', mode = 'r') as file:
+    csvFile = csv.reader(file)
+    for row in csvFile:
+        spy.append(row)
+
+#Load up calculator object and get time lists
+calculator = StockCalculator(spy, 'SPY')
+day_of_month = calculator.getDays()
+day_of_month.reverse()
+day_of_week = calculator.getWeekDays()
+day_of_week.reverse()
+month_list = calculator.getMonths()
+month_list.reverse()
+
+#Load in data into input dataframe for math. Also normalize
+spy_input = pd.read_csv('spy_max.csv')
+#normalize
+spy_input.drop('Date',axis=1,inplace=True)
+spy_normed = (spy_input - spy_input.min())/(spy_input.max() - spy_input.min())
+spy_normed = spy_normed.loc[::-1].reset_index(drop=True)
+
+#Create output dataframe and set up the time signals (month, day, weekday)
+months = {'Month': month_list}
+spy_out = pd.DataFrame(months)
+spy_out['MonthDay'] = day_of_month
+spy_out['Day'] = day_of_week
+
+#Add in closing price
+spy_out['LastClose'] = spy_normed['Close/Last'].shift(1) #Need to make sure it contains the previous closing value
+#Add in high and low so I can use those later to create extra data
+spy_out['High'] = spy_normed['High']
+spy_out['Low'] = spy_normed['Low']
+
+#Add SMAs 
+spy_out['SMA10'] = spy_out['LastClose'].rolling(window = 10, center = False).mean()
+spy_out['SMA20'] = spy_out['LastClose'].rolling(window = 20, center = False).mean()
+spy_out['SMA60'] = spy_out['LastClose'].rolling(window = 60, center = False).mean()
+
+#Add Standard Deviations
+spy_out['STD10'] = spy_out['LastClose'].rolling(window = 10, center = False).std()
+spy_out['STD20'] = spy_out['LastClose'].rolling(window = 20, center = False).std()
+spy_out['STD60'] = spy_out['LastClose'].rolling(window = 60, center = False).std()
+
+print(spy_out[0:15])
