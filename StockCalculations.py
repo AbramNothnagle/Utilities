@@ -274,14 +274,139 @@ spy_out['LastClose'] = spy_normed['Close/Last'].shift(1) #Need to make sure it c
 spy_out['High'] = spy_normed['High']
 spy_out['Low'] = spy_normed['Low']
 
-#Add SMAs 
+#Add SMAs
+spy_out['SMA3'] = spy_out['LastClose'].rolling(window = 3, center = False).mean() 
 spy_out['SMA10'] = spy_out['LastClose'].rolling(window = 10, center = False).mean()
 spy_out['SMA20'] = spy_out['LastClose'].rolling(window = 20, center = False).mean()
 spy_out['SMA60'] = spy_out['LastClose'].rolling(window = 60, center = False).mean()
 
 #Add Standard Deviations
+spy_out['STD3'] = spy_out['LastClose'].rolling(window = 3, center = False).std()
 spy_out['STD10'] = spy_out['LastClose'].rolling(window = 10, center = False).std()
 spy_out['STD20'] = spy_out['LastClose'].rolling(window = 20, center = False).std()
 spy_out['STD60'] = spy_out['LastClose'].rolling(window = 60, center = False).std()
 
-print(spy_out[0:15])
+#Add Weighted Moving Averages (WMA)
+def calcWMA(x, data):
+    weights = np.array(list(range(1,x+1)))
+    wma = data['LastClose'].rolling(window=x,center=False).apply(lambda x: np.sum(weights*x)/np.sum(weights), raw=False)
+    return wma
+spy_out['WMA10'] = calcWMA(10,spy_out)
+spy_out['WMA20'] = calcWMA(20,spy_out)
+spy_out['WMA60'] = calcWMA(60,spy_out)
+
+#Add Exponential Moving Averages
+#actually not sure if I want to do this one
+
+#Add min and max
+#15 day min and max
+spy_out['Min15'] = spy_out['LastClose'].rolling(window=15, center=False).min()
+spy_out['Max15'] = spy_out['LastClose'].rolling(window=15, center=False).max()
+
+def buyLabel(data, i):
+    currentVal = data['LastClose'].iloc[i]
+    nextFive = data['LastClose'].iloc[i+1:i+7]
+    buy = any(nextFive > 1.01*currentVal)
+    return buy
+
+def sellLabel(data, i):
+    currentVal = data['LastClose'].iloc[i]
+    nextFive = data['LastClose'].iloc[i+1:i+7]
+    sell = any(nextFive < 0.99*currentVal)
+    return sell
+
+def holdLabel(data, i):
+    currentVal = data['LastClose'].iloc[i]
+    nextFive = data['LastClose'].iloc[i+1:i+7]
+    if all(nextFive > 0.99*currentVal) and all(nextFive < 1.01*currentVal):
+        hold = True
+    else:
+        hold = False
+    return hold
+
+#Add test prices between the high and low for that day to extend the data
+signals = pd.DataFrame(columns=spy_out.columns.values)
+signals['Price'] = []
+signals['Buy'] = []
+signals['Sell'] = []
+signals['Hold'] = []
+
+j=0
+for i in range(len(spy_out)):
+    lowPrice = spy_out.iloc[i].copy()
+    lowPrice['Price'] = lowPrice['Low']
+    lowPrice['Buy'] = buyLabel(spy_out, i)
+    lowPrice['Sell'] = sellLabel(spy_out, i)
+    lowPrice['Hold'] = holdLabel(spy_out, i)
+    signals.loc[j] = lowPrice
+    j += 1
+    
+    highPrice = spy_out.iloc[i].copy()
+    highPrice['Price'] = highPrice['High']
+    highPrice['Buy'] = buyLabel(spy_out, i)
+    highPrice['Sell'] = sellLabel(spy_out, i)
+    highPrice['Hold'] = holdLabel(spy_out, i)
+    signals.loc[j] = highPrice
+    j += 1
+    
+    price_delta = spy_out.iloc[i]['High'] - spy_out.iloc[i]['Low']
+    q1Price = spy_out.iloc[i].copy()
+    q1Price['Price'] = q1Price['Low'] + price_delta*0.33
+    q1Price['Buy'] = buyLabel(spy_out, i)
+    q1Price['Sell'] = sellLabel(spy_out, i)
+    q1Price['Hold'] = holdLabel(spy_out, i)
+    signals.loc[j] = q1Price
+    j += 1
+    
+    q2Price = spy_out.iloc[i].copy()
+    q2Price['Price'] = q2Price['Low'] + price_delta*0.67
+    q2Price['Buy'] = buyLabel(spy_out, i)
+    q2Price['Sell'] = sellLabel(spy_out, i)
+    q2Price['Hold'] = holdLabel(spy_out, i)
+    signals.loc[j] = q2Price
+    j += 1
+
+print(len(signals))
+
+'''#Add labels for buy, sell, and hold
+def buyList(data):
+    buys = []
+    for i in range(len(data)):
+        currentVal = data['LastClose'].iloc[i]
+        nextFive = data['LastClose'].iloc[i+1:i+7]
+        buys.append(any(nextFive > 1.01*currentVal))
+    return buys
+
+def sellList(data):
+    sells = []
+    for i in range(len(data)):
+        currentVal = data['LastClose'].iloc[i]
+        nextFive = data['LastClose'].iloc[i+1:i+7]
+        sells.append(any(nextFive < 0.99*currentVal))
+    return sells
+
+def holdList(data):
+    holds = []
+    for i in range(len(data)):
+        currentVal = data['LastClose'].iloc[i]
+        nextFive = data['LastClose'].iloc[i+1:i+7]
+        if all(nextFive > 0.99*currentVal) and all(nextFive < 1.01*currentVal):
+            holds.append(True)
+        else:
+            holds.append(False)
+
+    return holds
+    
+spy_out['Buy'] = buyList(signals)
+#Should it be possible for both Buy and Sell signals to be correct?
+#Currently that's possible because, within 5 days, it often is both +1% and -1% at some point in that period
+spy_out['Sell'] = sellList(signals)
+#There are almost no hold conditions, should I keep this?
+spy_out['Hold'] = holdList(signals)'''
+
+print(signals[0:30])
+'''for i in range(len(spy_out)):
+    if spy_out['Hold'].iloc[i]:
+        print(spy_out.iloc[i])'''
+        
+signals.to_csv('SPY_signals.csv')
