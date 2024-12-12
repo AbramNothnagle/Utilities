@@ -259,7 +259,8 @@ month_list.reverse()
 spy_input = pd.read_csv('spy_max.csv')
 #normalize
 spy_input.drop('Date',axis=1,inplace=True)
-spy_normed = (spy_input - spy_input.min())/(spy_input.max() - spy_input.min())
+spy_normed = spy_input #Norm it at the end, actually, so we can have normed dates
+#spy_normed = (spy_input - spy_input.min())/(spy_input.max() - spy_input.min())
 spy_normed = spy_normed.loc[::-1].reset_index(drop=True)
 
 #Create output dataframe and set up the time signals (month, day, weekday)
@@ -303,110 +304,81 @@ spy_out['WMA60'] = calcWMA(60,spy_out)
 spy_out['Min15'] = spy_out['LastClose'].rolling(window=15, center=False).min()
 spy_out['Max15'] = spy_out['LastClose'].rolling(window=15, center=False).max()
 
-def buyLabel(data, i):
-    currentVal = data['LastClose'].iloc[i]
+#Set up functions to calculate the label for each price. Buy, hold, sell
+def buyLabel(data, price, i):
     nextFive = data['LastClose'].iloc[i+1:i+7]
-    buy = any(nextFive > 1.01*currentVal)
+    buy = any(nextFive > 1.01*price)
     return buy
 
-def sellLabel(data, i):
-    currentVal = data['LastClose'].iloc[i]
+def sellLabel(data, price, i):
     nextFive = data['LastClose'].iloc[i+1:i+7]
-    sell = any(nextFive < 0.99*currentVal)
+    sell = any(nextFive < 0.99*price)
     return sell
 
-def holdLabel(data, i):
-    currentVal = data['LastClose'].iloc[i]
+def holdLabel(data, price, i):
     nextFive = data['LastClose'].iloc[i+1:i+7]
-    if all(nextFive > 0.99*currentVal) and all(nextFive < 1.01*currentVal):
+    if all(nextFive > 0.99*price) and all(nextFive < 1.01*price):
         hold = True
     else:
         hold = False
     return hold
 
 #Add test prices between the high and low for that day to extend the data
+#Additionally, add the buy, sell, and hold labels to each price
 signals = pd.DataFrame(columns=spy_out.columns.values)
 signals['Price'] = []
 signals['Buy'] = []
 signals['Sell'] = []
 signals['Hold'] = []
 
-j=0
+j=0 #Use this to keep track of the new DataFrame's index
+#Create 4 datapoints per day so we can simulate 4 real prices seen during the day
 for i in range(len(spy_out)):
+    #Use low for that day as one datapoint
     lowPrice = spy_out.iloc[i].copy()
-    lowPrice['Price'] = lowPrice['Low']
-    lowPrice['Buy'] = buyLabel(spy_out, i)
-    lowPrice['Sell'] = sellLabel(spy_out, i)
-    lowPrice['Hold'] = holdLabel(spy_out, i)
+    price = lowPrice['Low']
+    lowPrice['Price'] = price
+    lowPrice['Buy'] = buyLabel(spy_out, price, i)
+    lowPrice['Sell'] = sellLabel(spy_out, price, i)
+    lowPrice['Hold'] = holdLabel(spy_out, price, i)
     signals.loc[j] = lowPrice
     j += 1
     
+    #Use high for that day as one datapoint
     highPrice = spy_out.iloc[i].copy()
-    highPrice['Price'] = highPrice['High']
-    highPrice['Buy'] = buyLabel(spy_out, i)
-    highPrice['Sell'] = sellLabel(spy_out, i)
-    highPrice['Hold'] = holdLabel(spy_out, i)
+    price = highPrice['High']
+    highPrice['Price'] = price
+    highPrice['Buy'] = buyLabel(spy_out, price, i)
+    highPrice['Sell'] = sellLabel(spy_out, price, i)
+    highPrice['Hold'] = holdLabel(spy_out, price, i)
     signals.loc[j] = highPrice
     j += 1
     
+    #Use 1/3rd of the way between high and low for that day as one datapoint
     price_delta = spy_out.iloc[i]['High'] - spy_out.iloc[i]['Low']
     q1Price = spy_out.iloc[i].copy()
-    q1Price['Price'] = q1Price['Low'] + price_delta*0.33
-    q1Price['Buy'] = buyLabel(spy_out, i)
-    q1Price['Sell'] = sellLabel(spy_out, i)
-    q1Price['Hold'] = holdLabel(spy_out, i)
+    price = q1Price['Low'] + price_delta*0.33
+    q1Price['Price'] = price
+    q1Price['Buy'] = buyLabel(spy_out, price, i)
+    q1Price['Sell'] = sellLabel(spy_out, price, i)
+    q1Price['Hold'] = holdLabel(spy_out, price, i)
     signals.loc[j] = q1Price
     j += 1
     
+    #Use 2/3rds of the way between high and low for that day as one datapoint
     q2Price = spy_out.iloc[i].copy()
-    q2Price['Price'] = q2Price['Low'] + price_delta*0.67
-    q2Price['Buy'] = buyLabel(spy_out, i)
-    q2Price['Sell'] = sellLabel(spy_out, i)
-    q2Price['Hold'] = holdLabel(spy_out, i)
+    price = q2Price['Low'] + price_delta*0.67
+    q2Price['Price'] = price
+    q2Price['Buy'] = buyLabel(spy_out, price, i)
+    q2Price['Sell'] = sellLabel(spy_out, price, i)
+    q2Price['Hold'] = holdLabel(spy_out, price, i)
     signals.loc[j] = q2Price
     j += 1
 
-print(len(signals))
+#Normalize the signals so they're all on a scale from 0 - 1
+signals_normed = (signals - signals.min())/(signals.max() - signals.min())
 
-'''#Add labels for buy, sell, and hold
-def buyList(data):
-    buys = []
-    for i in range(len(data)):
-        currentVal = data['LastClose'].iloc[i]
-        nextFive = data['LastClose'].iloc[i+1:i+7]
-        buys.append(any(nextFive > 1.01*currentVal))
-    return buys
+print(signals_normed[0:30])
 
-def sellList(data):
-    sells = []
-    for i in range(len(data)):
-        currentVal = data['LastClose'].iloc[i]
-        nextFive = data['LastClose'].iloc[i+1:i+7]
-        sells.append(any(nextFive < 0.99*currentVal))
-    return sells
-
-def holdList(data):
-    holds = []
-    for i in range(len(data)):
-        currentVal = data['LastClose'].iloc[i]
-        nextFive = data['LastClose'].iloc[i+1:i+7]
-        if all(nextFive > 0.99*currentVal) and all(nextFive < 1.01*currentVal):
-            holds.append(True)
-        else:
-            holds.append(False)
-
-    return holds
-    
-spy_out['Buy'] = buyList(signals)
-#Should it be possible for both Buy and Sell signals to be correct?
-#Currently that's possible because, within 5 days, it often is both +1% and -1% at some point in that period
-spy_out['Sell'] = sellList(signals)
-#There are almost no hold conditions, should I keep this?
-spy_out['Hold'] = holdList(signals)'''
-
-print(signals[0:30])
-'''for i in range(len(spy_out)):
-    if spy_out['Hold'].iloc[i]:
-        print(spy_out.iloc[i])'''
         
-signals.to_csv('SPY_signals.csv')
+signals_normed.to_csv('SPY_signals.csv')
