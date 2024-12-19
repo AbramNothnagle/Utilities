@@ -79,5 +79,22 @@ def testNorm():
     plt.ylabel('normalized y')
     plt.show()
 
+def testApplyNoise():
+    generator = DataGen.DataGen()
+    x, y = generator.generateLinear(1,0,0,10,90,2)
+    x2, y2 = generator.generateLinear(1,10,1,10,90,2)
+    y = generator.applyWindowedNoise(y, 5, 1)
+    plt.figure(figsize=(12, 6))
+    plt.plot(x, y, label='Windowed Data')
+    plt.plot(x2, y2, label='Base Data')
+    plt.legend()
+    plt.title('Noisy Data')
+    plt.xlabel('x')
+    plt.ylabel('y')
+    plt.show()
+    #print(y[0])
+    
+
 #testDataGen()
-testNorm()
+#testNorm()
+testApplyNoise()

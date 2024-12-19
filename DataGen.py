@@ -12,6 +12,8 @@ This class generates synthetic data for use in training neural networks
 '''
 
 import numpy as np
+import pandas as pd
+import math
 #from operator import add
 import operator
 
@@ -49,6 +51,7 @@ class DataGen():
             x.append(i)
             
         #if a standard deviation was set, apply it to the y axis
+        #This is the wrong way of applying this, it gives you a huge offset because it uses the overall average
         if stdev > 0:
             avg = np.mean(y) #first you need the average of the data
             noise = np.random.normal(avg, stdev, len(y))
@@ -87,11 +90,64 @@ class DataGen():
             x.append(i)
         
         #if a standard deviation was set, apply it to the y axis
+        #This is the wrong way of applying this, it gives you a huge offset because it uses the overall average
         if stdev > 0:
             avg = np.mean(y) #first you need the average of the data
             noise = np.random.normal(avg, stdev, len(y))
             y = y + noise
             
+        return (x, y)
+    
+    '''
+    generateExponential(float[] data = None, float exponent, float STDEV = 0, float offset = 0, int start = 0, int stop, int step)
+    This function generates exponential data by either incrementing from start to stop, or applying an exponent to an existing list.
+    Input:
+        float[] data: defaults to None. If not None, should be a float list that will have the exponent applied to it
+        float exponent: exponent to be applied
+        float STDEV: the standard deviation to make the output random gaussian
+        float offset: offset to be applied to the output
+        int start: the starting x value
+        int stop: the ending x value
+        int step: the step size to go from start to stop
+    Output:
+        (list of x, list of y)
+    '''
+    def generateExponential(self, data = None, exponent = 2, stdev = 0, offset = 0, start = 0, stop = 100, step = 1):
+        if (stop - start) < step:
+            print("Error in generateLinear;\n step size is larger than data range.")
+            return
+        if stdev < 0:
+            print("Error in generateLinear;\n stdev must be greater than 0.")
+            return
+        
+        #If data = None, then apply the exponential to a range from start to end with increment size
+        if data == None:
+            x = []
+            y = []
+            for i in range(start, stop, step):
+                y.append(i**exponent + offset)
+                x.append(i)
+            #if a standard deviation was set, apply it to the y axis
+            #This is the wrong way of applying this, it gives you a huge offset because it uses the overall average
+            if stdev > 0:
+                avg = np.mean(y) #first you need the average of the data
+                noise = np.random.normal(avg, stdev, len(y))
+                y = y + noise
+        
+        #If a data list was provided, apply the exponential to that list
+        else:
+            x = []
+            y = []
+            for i in range(len(data)):
+                y.append(data[i]**exponent + offset)
+                x.append(i)
+            #if a standard deviation was set, apply it to the y axis
+            #This is the wrong way of applying this, it gives you a huge offset because it uses the overall average
+            if stdev > 0:
+                avg = np.mean(y) #first you need the average of the data
+                noise = np.random.normal(avg, stdev, len(y))
+                y = y + noise
+        
         return (x, y)
     
     '''
@@ -114,6 +170,29 @@ class DataGen():
         return (x, y)
     
     '''
+    applyWindowedNoise(list data, int window, float STD)
+    This will apply noise to the data list using a normal distribution with standard deviation based on a rolling window.
+    A rolling window will have the noise applied, so the noise follows the window instead of being calculated across all data.
+    Uses backfill.
+    Input: 
+        list data: the data to have the STD applied over
+        int window: rolling window that will have a normal distribution std applied to
+        float STD: standard deviation used to generate the normal distribution in each window
+    Output:
+        list noisy_data: data of the same shape as data, but with the noise applied
+    '''
+    def applyWindowedNoise(self, data, window, std):
+        df_data = pd.DataFrame(data)
+        df_data['avgs'] = df_data[0].rolling(window = window, center = False).mean()
+        df_data['avgs'] = df_data['avgs'].bfill()
+        noisy_data = []
+        for i in range(len(df_data)):
+            #print(np.random.normal(df_data['avgs'].iloc[i], std))
+            #noisy_data.append(df_data[0].iloc[i] + np.random.normal(df_data['avgs'].iloc[i], std))
+            noisy_data.append(np.random.normal(df_data['avgs'].iloc[i], std))
+        return noisy_data
+    
+    '''
     unitNorm(data)
     takes in the data and normalizes it to a unit norm for neural network training
     Input:
@@ -125,5 +204,6 @@ class DataGen():
         min_val = np.min(data)
         max_val = np.max(data)
         return (data - min_val) / (max_val - min_val)
+        ##normed = (data - data.min())/(data.max() - data.min()) #if usin Pandas
         #norm = np.linalg.norm(y, axis=0, keepdims=True)
         #return y / norm
